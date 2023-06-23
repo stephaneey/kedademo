@@ -1,0 +1,100 @@
+# should work with workload identities instead of connection strings
+apiVersion: keda.sh/v1alpha1 
+kind: ScaledObject
+metadata:
+  name: servicebus-subscriber-scaler
+spec:
+  scaleTargetRef:
+    name: messageprocessor  
+  maxReplicaCount: 10
+  minReplicaCount: 0
+  cooldownPeriod: 30
+  triggers:
+  - type: azure-servicebus
+    metadata:
+      namespace: dev-asb-app-daf-tax
+      topicName: kedapoctopic
+      subscriptionName: kedapocsubscription      
+    authenticationRef:
+      name: trigger-auth-service-bus-poc
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+ name: servicebus-subscriber-scaler-job 
+spec:
+  jobTargetRef:
+    parallelism: 10                            
+    completions: 1                            
+    activeDeadlineSeconds: 600                
+    backoffLimit: 3                           
+    template:      
+      spec:
+        containers:
+        - name: messageprocessorjob
+          image: stephaneey/kedamessageprocessor:demo
+          env:
+          - name: TargetBus
+            value: "connection string goes here"
+          - name: TargetTopic
+            value: kedapoctopic
+          - name: TargetSubscription
+            value: kedapocsubscription
+          - name: RunAsJob
+            value: "true"
+  maxReplicaCount: 5
+  triggers:
+  - type: azure-servicebus
+    metadata:
+      namespace: dev-asb-app-daf-tax
+      topicName: kedapoctopic
+      subscriptionName: kedapocsubscription      
+    authenticationRef:
+      name: trigger-auth-service-bus-poc 
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: trigger-auth-service-bus-poc 
+spec:
+  secretTargetRef:
+  - parameter: connection
+    name: secrets-keda-bus
+    key: servicebus-kedapoc-connectionstring
+---
+apiVersion: v1
+kind: apiVersion: v1
+kind: Secret
+metadata:
+  name: secrets-keda-bus
+
+data:
+  servicebus-kedapoc-connectionstring: <base64 encoded value of connection string>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messageprocessor
+spec:
+  selector:
+    matchLabels:
+      app: messageprocessor
+  template:
+    metadata:
+      labels:
+        app: messageprocessor
+    spec:
+      containers:
+      - name: messageprocessor
+        image: stephaneey/kedamessageprocessor:demo
+        env:
+        - name: TargetBus
+          value: "connection string goes here"
+        - name: TargetTopic
+          value: kedapoctopic
+        - name: TargetSubscription
+          value: kedapocsubscription           
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
