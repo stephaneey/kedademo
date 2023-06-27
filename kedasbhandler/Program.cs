@@ -1,4 +1,5 @@
-﻿using Azure.Messaging.ServiceBus;
+//TO DO: add some decent exception handling, demo code only
+using Azure.Messaging.ServiceBus;
 bool RunAsJob = false;
 string ConnectionString = Environment.GetEnvironmentVariable("TargetBus");
 string TargetTopic = Environment.GetEnvironmentVariable("TargetTopic");
